@@ -227,7 +227,7 @@ FITSVisualisation {
             // Min Value Slider
             minLabel = StaticText(win, Rect(10, windowHeight + 30, 80, 20)).string_("Min Value:");
             minSlider = Slider(win, Rect(90, windowHeight + 30, windowWidth - 100, 20))
-                .minVal_(minVal).maxVal_(maxVal).value_(displayMin)
+                .minval_(minVal).maxval_(maxVal).value_(displayMin)
                 .action_({ |sl|
                     displayMin = sl.value;
                     if (displayMin > displayMax) { displayMax = displayMin; maxSlider.value = displayMax; };
@@ -237,7 +237,7 @@ FITSVisualisation {
             // Max Value Slider
             maxLabel = StaticText(win, Rect(10, windowHeight + 60, 80, 20)).string_("Max Value:");
             maxSlider = Slider(win, Rect(90, windowHeight + 60, windowWidth - 100, 20))
-                .minVal_(minVal).maxVal_(maxVal).value_(displayMax)
+                .minval_(minVal).maxval_(maxVal).value_(displayMax)
                 .action_({ |sl|
                     displayMax = sl.value;
                     if (displayMax < displayMin) { displayMin = displayMax; minSlider.value = displayMin; };
