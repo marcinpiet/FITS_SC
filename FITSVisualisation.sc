@@ -6,6 +6,7 @@ FITSVisualisation {
     var <currentRoiData, <currentRoiCenterX, <currentRoiCenterY, <currentRoiMaxRadius;
     var <interactiveWindow, <rowsWindow, <histogramWindow, <imageWindow, <regionWindow;
     var <colorWindow, <contourWindow, <colormapWindow, <radialProfileWindow;
+    var <displayMin, <displayMax; // For interactive visualization level adjustment
 
 
     *new { |fitsFileInstance|
@@ -213,33 +214,55 @@ FITSVisualisation {
         var win, userView, infoText;
         var mouseRow = 0, mouseCol = 0, mousePixel = 0;
         var plotLightCurveButton, plotEnergySpectrumButton, plotRadialProfileButton;
+        var minSlider, maxSlider, minLabel, maxLabel;
+
+        // Initialize displayMin and displayMax to the full range of the data
+        displayMin = minVal;
+        displayMax = maxVal;
 
         {
-            win = Window("FITS Image - Interactive (ROI Select)", Rect(400, 400, windowWidth, windowHeight + 60));
+            win = Window("FITS Image - Interactive (ROI Select)", Rect(400, 400, windowWidth, windowHeight + 120)); // Increased height for sliders
             infoText = StaticText(win, Rect(10, windowHeight + 5, windowWidth - 20, 20)).string_("Click and drag to select ROI").font_(Font.monospace(12));
 
-            plotLightCurveButton = Button(win, Rect(10, windowHeight + 30, 180, 25))
+            // Min Value Slider
+            minLabel = StaticText(win, Rect(10, windowHeight + 30, 80, 20)).string_("Min Value:");
+            minSlider = Slider(win, Rect(90, windowHeight + 30, windowWidth - 100, 20))
+                .minVal_(minVal).maxVal_(maxVal).value_(displayMin)
+                .action_({ |sl|
+                    displayMin = sl.value;
+                    if (displayMin > displayMax) { displayMax = displayMin; maxSlider.value = displayMax; };
+                    userView.refresh;
+                });
+
+            // Max Value Slider
+            maxLabel = StaticText(win, Rect(10, windowHeight + 60, 80, 20)).string_("Max Value:");
+            maxSlider = Slider(win, Rect(90, windowHeight + 60, windowWidth - 100, 20))
+                .minVal_(minVal).maxVal_(maxVal).value_(displayMax)
+                .action_({ |sl|
+                    displayMax = sl.value;
+                    if (displayMax < displayMin) { displayMin = displayMax; minSlider.value = displayMin; };
+                    userView.refresh;
+                });
+
+            plotLightCurveButton = Button(win, Rect(10, windowHeight + 90, 180, 25))
                 .states_([["Plot Light Curve (32 bins)"]])
-                .action_({
-                    |btn|
+                .action_({ |btn|
                     if (currentRoiData.notNil) {
                         this.plotHistogram(currentRoiData, "ROI Light Curve (Histogram, 32 bins)", 32, 512);
                     } { "No ROI data available. Select an ROI first.".postln; };
                 });
 
-            plotEnergySpectrumButton = Button(win, Rect(200, windowHeight + 30, 200, 25))
+            plotEnergySpectrumButton = Button(win, Rect(200, windowHeight + 90, 200, 25))
                 .states_([["Plot Energy Spectrum (256 bins)"]])
-                .action_({
-                    |btn|
+                .action_({ |btn|
                     if (currentRoiData.notNil) {
                         this.plotHistogram(currentRoiData, "ROI Energy Spectrum (Histogram, 256 bins)", 256, 512);
                     } { "No ROI data available. Select an ROI first.".postln; };
                 });
 
-            plotRadialProfileButton = Button(win, Rect(410, windowHeight + 30, 150, 25))
+            plotRadialProfileButton = Button(win, Rect(410, windowHeight + 90, 150, 25))
                 .states_([["Plot Radial Profile"]])
-                .action_({
-                    |btn|
+                .action_({ |btn|
                     var radialProf;
                     if (currentRoiData.notNil and: currentRoiCenterX.notNil) {
                         radialProf = fitsFile.radialProfile(currentRoiCenterX, currentRoiCenterY, currentRoiMaxRadius);
@@ -247,12 +270,14 @@ FITSVisualisation {
                     } { "No ROI data available. Select an ROI first.".postln; };
                 });
 
-            userView = UserView(win, Rect(0, 0, windowWidth, windowHeight)).drawFunc_({
-                Pen.use {
+            userView = UserView(win, Rect(0, 0, windowWidth, windowHeight)).drawFunc_({ Pen.use {
+                    var currentRange = displayMax - displayMin;
+                    if (currentRange == 0) { currentRange = 1.0; }; // Avoid division by zero
+
                     newHeight.do({ |r|
                         newWidth.do({ |c|
                             var pixel = fitsFile.getPixel(c * downsample, r * downsample);
-                            var normalized = (pixel - minVal) / (maxVal - minVal);
+                            var normalized = (pixel - displayMin) / currentRange;
                             Pen.fillColor = Color.gray(normalized.clip(0, 1));
                             Pen.fillRect(Rect(c * scaleX, r * scaleY, scaleX + 1, scaleY + 1));
                         });
@@ -275,16 +300,14 @@ FITSVisualisation {
                         Pen.stroke;
                     };
                 };
-            }).mouseDownAction_({
-                |view, x, y|
+            }).mouseDownAction_({ |view, x, y|
                 isSelectingROI = true;
                 roiStartX = (x / scaleX).floor.clip(0, newWidth - 1);
                 roiStartY = (y / scaleY).floor.clip(0, newHeight - 1);
                 roiEndX = roiStartX;
                 roiEndY = roiStartY;
                 view.refresh;
-            }).mouseMoveAction_({
-                |view, x, y|
+            }).mouseMoveAction_({ |view, x, y|
                 var origRow, origCol;
                 mouseCol = (x / scaleX).floor.clip(0, newWidth - 1);
                 mouseRow = (y / scaleY).floor.clip(0, newHeight - 1);
@@ -298,8 +321,7 @@ FITSVisualisation {
                     roiEndY = (y / scaleY).floor.clip(0, newHeight - 1);
                 };
                 view.refresh;
-            }).mouseUpAction_({
-                |view, x, y|
+            }).mouseUpAction_({ |view, x, y|
                 var x1, y1, x2, y2, roiWidth, roiHeight;
                 isSelectingROI = false;
                 roiEndX = (x / scaleX).floor.clip(0, newWidth - 1);
