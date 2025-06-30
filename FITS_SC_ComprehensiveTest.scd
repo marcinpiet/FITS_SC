@@ -1,8 +1,6 @@
 // FITSAdjustedVisualisation_Test.scd
 // Test script for visualizing adjusted FITS data using FITSVisualisation class.
 
-s.boot; // Ensure the server is booted
-
 // Define the path to your sample FITS file
 ~fitsFilePath = "/Users/marcinpietruszewski/Downloads/nuPG_2024_ScreenShot.fits";
 
